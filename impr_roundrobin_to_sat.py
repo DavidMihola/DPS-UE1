@@ -118,6 +118,20 @@ for (week, field, team) in itertools.product(weeks, fields, teams):
 
 print "p cnf", max_vars, clauses
 
+### Now, the improvements:
+
+for (field, team1, team2) in itertools.product (fields, teams, teams):
+  if (team1 != team2 - 1):
+    var1 = encode(1, field, team1, 1)
+    var2 = encode(1, field, team2, 2)
+    print -var1, -var2, 0
+
+for (week, field, team) in itertools.product(weeks, fields, teams):
+  if (week != team - 1):
+    var1 = encode(week, field, 1, 1)
+    var2 = encode(week, field, team, 2)
+    print -var1, -var2, 0
+
 print "c clauses from 2."
 
 for (week, field) in itertools.product(weeks, fields):
@@ -164,16 +178,3 @@ for (team, field, week1, week2, week3, r1, r2, r3) in itertools.product(teams, f
   var3 = encode(week3, field, team, r3)
   print -var1, -var2, -var3, 0
 
-### Now, the improvements:
-
-for (field, team1, team2) in itertools.product (fields, teams, teams):
-  if (team1 != team2 - 1):
-    var1 = encode(1, field, team1, 1)
-    var2 = encode(1, field, team2, 2)
-    print -var1, -var2, 0
-
-for (week, field, team) in itertools.product(weeks, fields, teams):
-  if (week != team - 1):
-    var1 = encode(week, field, 1, 1)
-    var2 = encode(week, field, team, 2)
-    print -var1, -var2, 0

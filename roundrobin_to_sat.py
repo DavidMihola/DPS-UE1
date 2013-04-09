@@ -1,4 +1,7 @@
 import itertools, sys
+from sets import Set
+
+### FUNCTION DEFINITIONS ###
 
 def length(number):
   return len(str(number))
@@ -10,23 +13,53 @@ def length(number):
 #       otherwise, decoding is not possible
 # output format is: position(1 digit), week (x digits), field (x digits), team (x digits)
 def encode(week, field, team, position):
-  # first determine the number of digits necessary to encode week, field and team
-  digits_per_field = max(map(length, [week, field, team]))
-#  print digits_per_field
-  shift = pow(10, digits_per_field)
-  tmp = position * shift + week
-  tmp = tmp * shift + field
-  tmp = tmp * shift + team
-#  print tmp
-  return tmp
+  # the game-slots are numbered from the top left:
+  # 1, 2, 3, ... weeks
+  # weeks+1, weeks+2, ... 2*weeks
+  #  ....................fields*weeks
+  # so, there are:
+  weeks = max_team - 1
+  fields = max_team / 2
+  slots = weeks * fields
+
+  if (position == 1):
+    offset = 0
+    team_index = team - 1 #team 1 is 0, etc.
+  else:
+    offset = max_vars / 2
+    team_index = team - 2 #no team1, team2 is 0, etc.
+
+  col_index = week - 1
+  row_index = field - 1
+  slot_index = row_index * weeks + col_index # going from 0*weeks + 0 up 
+
+  team_slot = slots * team_index + slot_index
+
+  # the first half is for teams in position 1
+  # the second half is for teams in position 2
+  return offset + team_slot + 1
 
 # the inverse function to encode
 def decode(number):
-  digits_per_field, remainder = divmod(length(number), 3)
-#  print digits_per_field
-  if remainder != 1:
-    print "Fehler"
-    return
+  number = number - 1
+
+  weeks = max_team - 1
+  fields = max_team / 2
+  slots = weeks * fields
+
+  if (number < (max_vars / 2)):
+    position = 1
+    team_offset = 1
+  else:
+    position = 2
+    team_offset = 2
+    number = number - (max_vars / 2)
+
+  (team_index, slot_index) = divmod(number, slots)
+  (row_index, col_index) = divmod(slot_index, weeks)
+
+  return (col_index + 1, row_index + 1, team_index + team_offset, position)
+
 
   shift = pow(10, digits_per_field)
   tmp, team = divmod(number, shift)
@@ -35,117 +68,128 @@ def decode(number):
   
   return (week, field, team, position)
 
+def point2clauses():
+  clauses = []
+  for (week, field) in itertools.product(weeks, fields):
+    vars1 = (encode(week, field, team, 1) for team in range (1, max_team))
+    clauses.append(" ".join(map(str, vars1)) + " 0")
+    vars2 = (encode(week, field, team, 2) for team in range (2, max_team + 1))
+    clauses.append(" ".join(map(str, vars2)) + " 0")
+  #print "2: ", len(clauses)
+  return clauses
+
+def point3clauses():
+  clauses = []
+  for (week, field, team1) in itertools.product(weeks, fields, teams):
+    for team2 in range(1, team1 + 1):
+      var1 = encode(week, field, team1, 1)
+      var2 = encode(week, field, team2, 2)
+      clauses.append("-{0} -{1} 0".format(var1, var2))
+  #print "3: ", len(clauses)
+  return clauses
+
+def point4clauses():
+  clauses = []
+  for (week, team, field1, field2, r1, r2) in itertools.product(weeks, teams, fields, fields, positions, positions):
+    # the first team (number 1) can never play in the second position of( a slot:
+    if ( (team == 1) and ((r1 == 2) or (r2 == 2)) ): continue
+    # also, the last team (number max_team) can never play in the first position of a slot:
+    if ( (team == max_team) and ((r1 == 1) or (r2 == 1)) ): continue
+  
+    var1 = encode(week, field1, team, r1)
+    var2 = encode(week, field2, team, r2)
+
+    if (var1 != var2): clauses.append("-{0} -{1} 0".format(var1, var2))
+  #print "4: ", len(clauses)
+  return clauses
+
+def point5clauses():
+  clauses = []
+  for (week1, week2, field1, field2, team1) in itertools.product(weeks, weeks, fields, fields, teams):
+    if (week1 != week2):
+      for team2 in range(team1 + 1, max_team + 1):
+        var1 = encode(week1, field1, team1, 1)
+        var2 = encode(week1, field1, team2, 2)
+        var3 = encode(week2, field2, team1, 1)
+        var4 = encode(week2, field2, team2, 2)
+        clauses.append("-{0} -{1} -{2} -{3} 0".format(var1, var2, var3, var4))
+  #print "5: ", len(clauses)
+  return clauses
+
+def point6clauses():
+  clauses = []
+  for (team, field, week1, r1, r2, r3) in itertools.product(teams, fields, weeks, positions, positions, positions):
+    for week2 in range(week1 + 1, max_team):
+      for week3 in range(week2 + 1, max_team):
+        var1 = encode(week1, field, team, r1)
+        var2 = encode(week2, field, team, r2)
+        var3 = encode(week3, field, team, r3)
+        clauses.append("-{0} -{1} -{2} 0".format(var1, var2, var3))
+  #print "6: ", len(clauses)
+  return clauses
+
 
 ### MAIN PROGRAM STARTS HERE ###
+
 args = sys.argv
 max_team = int(args[1])
 #print max_team
 teams = range(1, max_team + 1)
-weeks = range(1, (max_team - 1) + 1)
+position1teams = range(1, max_team)
+position2teams = range(2, max_team + 1)
+weeks = range(1, max_team)
 fields = range(1, (max_team / 2) + 1)
 positions = range(1, 3)
 
-max_vars = pow(10, 3 * length(max_team) + 1)
+max_vars = max_team * (max_team -1) * (max_team -1)
 
-#print max_vars
+def main():
 
-#print weeks
-#print fields
+  '''
+  vars = Set([])
+  errs = 0
 
-# first, one run through to count the clauses:
+  for (week, field, team, position) in itertools.product(weeks, fields, position1teams, [1]):
+    var = encode(week, field, team, position)
+    if (var in vars):
+      print "Fehler: ", var,
+      print "codiert aus ({}, {}, {}, {})".format(week, field, team, position)
+      errs += 1
+    else:
+      print "OK: ", var,
+      print "codiert aus ({}, {}, {}, {})".format(week, field, team, position)
+      vars.add(var)
 
-clauses = 0
-
-#print "c clauses from 2."
-
-for (week, field) in itertools.product(weeks, fields):
-  list1 = (encode(week, field, team, 1) for team in range (1, max_team))
-  clauses += 1 #print " ".join(map(str, list1)), 0
-  list2 = (encode(week, field, team, 2) for team in range (2, max_team + 1))
-  clauses += 1 #print " ".join(map(str, list2)), 0
-
-#print "c clauses from 3."
-
-for (week, field) in itertools.product(weeks, fields):
-  for (team1, team2) in itertools.product(teams, teams):
-    if (team1 >= team2): clauses += 1 #print -encode(week, field, team1, 1), -encode(week, field, team2, 2), 0
-
-#print "c clauses from 4."
-
-for (week, team, field1, field2, r1, r2) in itertools.product(weeks, teams, fields, fields, positions, positions):
-  # the first team (number 1) can never play in the second position of( a slot:
-  if ( (team == 1) and ((r1 == 2) or (r2 == 2)) ): continue
-  # also, the last team (number max_team) can never play in the first position of a slot:
-  if ( (team == max_team) and ((r1 == 1) or (r2 == 1)) ): continue
   
-  var1 = encode(week, field1, team, r1)
-  var2 = encode(week, field2, team, r2)
-
-  if (var1 != var2): clauses += 1 #print -var1, -var2, 0
-
-#print "c clauses from 5"
-
-for (week1, week2, field1, field2, team1, team2) in itertools.product(weeks, weeks, fields, fields, teams, teams):
-  if ( (week1 != week2) and (team1 < team2) ):
-    var1 = encode(week1, field1, team1, 1)
-    var2 = encode(week1, field1, team2, 2)
-    var3 = encode(week2, field2, team1, 1)
-    var4 = encode(week2, field2, team2, 2)
-    clauses += 1 #print -var1, -var2, -var2, -var4, 0
-
-#print "c clauses from 6"
-
-for (team, field, week1, week2, week3, r1, r2, r3) in itertools.product(teams, fields, weeks, weeks, weeks, positions, positions, positions):
-  if (week1 == week2) or (week2 == week3) or (week3 == week1): continue
-  var1 = encode(week1, field, team, r1)
-  var2 = encode(week2, field, team, r2)
-  var3 = encode(week3, field, team, r3)
-  clauses += 1 #print -var1, -var2, -var3, 0
-
-print "p cnf", max_vars, clauses
-
-print "c clauses from 2."
-
-for (week, field) in itertools.product(weeks, fields):
-  list1 = (encode(week, field, team, 1) for team in range (1, max_team))
-  print " ".join(map(str, list1)), 0
-  list2 = (encode(week, field, team, 2) for team in range (2, max_team + 1))
-  print " ".join(map(str, list2)), 0
-
-print "c clauses from 3."
-
-for (week, field) in itertools.product(weeks, fields):
-  for (team1, team2) in itertools.product(teams, teams):
-    if (team1 >= team2): print -encode(week, field, team1, 1), -encode(week, field, team2, 2), 0
-
-print "c clauses from 4."
-
-for (week, team, field1, field2, r1, r2) in itertools.product(weeks, teams, fields, fields, positions, positions):
-  # the first team (number 1) can never play in the second position of( a slot:
-  if ( (team == 1) and ((r1 == 2) or (r2 == 2)) ): continue
-  # also, the last team (number max_team) can never play in the first position of a slot:
-  if ( (team == max_team) and ((r1 == 1) or (r2 == 1)) ): continue
+  for (week, field, team, position) in itertools.product(weeks, fields, position2teams, [2]):
+    var = encode(week, field, team, position)
+    if (var in vars):
+      print "Fehler: ", var,
+      print "codiert aus ({}, {}, {}, {})".format(week, field, team, position)
+      errs += 1
+    else:
+      print "OK: ", var,
+      print "codiert aus ({}, {}, {}, {})".format(week, field, team, position)
+      vars.add(var)
   
-  var1 = encode(week, field1, team, r1)
-  var2 = encode(week, field2, team, r2)
 
-  if (var1 != var2): print -var1, -var2, 0
 
-print "c clauses from 5"
+  print "{0} Fehler".format(errs)
+  print "Set enthaelt {0} Variablen".format(len(vars))
 
-for (week1, week2, field1, field2, team1, team2) in itertools.product(weeks, weeks, fields, fields, teams, teams):
-  if ( (week1 != week2) and (team1 < team2) ):
-    var1 = encode(week1, field1, team1, 1)
-    var2 = encode(week1, field1, team2, 2)
-    var3 = encode(week2, field2, team1, 1)
-    var4 = encode(week2, field2, team2, 2)
-    print -var1, -var2, -var3, -var4, 0
+  print(list(vars))
+  '''
 
-print "c clauses from 6"
 
-for (team, field, week1, week2, week3, r1, r2, r3) in itertools.product(teams, fields, weeks, weeks, weeks, positions, positions, positions):
-  if (week1 == week2) or (week2 == week3) or (week3 == week1): continue
-  var1 = encode(week1, field, team, r1)
-  var2 = encode(week2, field, team, r2)
-  var3 = encode(week3, field, team, r3)
-  print -var1, -var2, -var3, 0
+  clauses = point2clauses() + point3clauses() + point4clauses() + point5clauses() + point6clauses()
+
+  print "p cnf", max_vars, len(clauses)
+
+  for clause in clauses:
+    print clause
+  
+if __name__ == "__main__":
+    main()
+
+
+

@@ -29,15 +29,22 @@ f = file(args[1], 'r')
 
 clauses = []
 
+for line in f:
+  print line
+
+'''
 for line in f:#sys.stdin:
   for word in line.split(' '):
     try:
       number = int(word)
       if (number > 0):
-#        print decode(number)
 	clauses.append(decode(number))
     except exceptions.ValueError:
       pass
+
+if (len(clauses) == 0):
+  print "No solution was found!"
+  sys.exit()
 
 max_team = max(x[2] for x in clauses)
 #print "Max team: ", max_team
@@ -78,3 +85,4 @@ def printcells(cells):
 
 
 printcells(cells)
+'''

@@ -18,26 +18,30 @@ def encode(week, field, team, position):
   # weeks+1, weeks+2, ... 2*weeks
   #  ....................fields*weeks
   # so, there are:
-  weeks = max_team - 1
-  fields = max_team / 2
-  slots = weeks * fields
+  week_count = len(weeks)
+  field_count = len(fields)
+  slot_count = week_count * field_count
 
   if (position == 1):
-    offset = 0
+    if ( (team < 1) or (team > max_team - 1) ):
+#      print "Wrong team index!!! Team {0} can't be at position 1".format(team)
+      return -1
     team_index = team - 1 #team 1 is 0, etc.
   else:
-    offset = max_vars / 2
+    if ( (team < 2) or (team > max_team) ):
+#      print "Wrong team index!!! Team {0} can't be at position 2".format(team)
+      return -1
     team_index = team - 2 #no team1, team2 is 0, etc.
 
-  col_index = week - 1
-  row_index = field - 1
-  slot_index = row_index * weeks + col_index # going from 0*weeks + 0 up 
+  week_index = week - 1
+  field_index = field - 1
+  slot_index = field_index * week_count + week_index # going from 0*weeks + 0 up 
 
-  team_slot = slots * team_index + slot_index
+  slot_team = team_index * slot_count + slot_index
 
   # the first half is for teams in position 1
   # the second half is for teams in position 2
-  return offset + team_slot + 1
+  return ( (max_vars / 2) * (position - 1) ) + slot_team + 1
 
 # the inverse function to encode
 def decode(number):
@@ -80,11 +84,17 @@ def point2clauses():
 
 def point3clauses():
   clauses = []
-  for (week, field, team1) in itertools.product(weeks, fields, teams):
-    for team2 in range(1, team1 + 1):
+#  for (week, field, team1) in itertools.product(weeks, fields, teams):
+#    for team2 in range(1, team1 + 1):
+  for (week, field, team1, team2) in itertools.product(weeks, fields, teams, teams):
+    if (team1 >= team2):
       var1 = encode(week, field, team1, 1)
       var2 = encode(week, field, team2, 2)
-      clauses.append("-{0} -{1} 0".format(var1, var2))
+#      print "Next clause:"
+#      print week, field, team1, 1
+#      print week, field, team2, 2
+      if (var1 != -1) and (var2 != -1):
+        clauses.append("-{0} -{1} 0".format(var1, var2))
   #print "3: ", len(clauses)
   return clauses
 
@@ -99,7 +109,8 @@ def point4clauses():
     var1 = encode(week, field1, team, r1)
     var2 = encode(week, field2, team, r2)
 
-    if (var1 != var2): clauses.append("-{0} -{1} 0".format(var1, var2))
+    if (var1 != var2) and (var1 != -1) and (var2 != -1):
+      clauses.append("-{0} -{1} 0".format(var1, var2))
   #print "4: ", len(clauses)
   return clauses
 
@@ -112,7 +123,8 @@ def point5clauses():
         var2 = encode(week1, field1, team2, 2)
         var3 = encode(week2, field2, team1, 1)
         var4 = encode(week2, field2, team2, 2)
-        clauses.append("-{0} -{1} -{2} -{3} 0".format(var1, var2, var3, var4))
+        if (var1 != -1) and (var2 != -1) and (var3 != -1) and (var4 != -1):
+          clauses.append("-{0} -{1} -{2} -{3} 0".format(var1, var2, var3, var4))
   #print "5: ", len(clauses)
   return clauses
 
@@ -124,7 +136,8 @@ def point6clauses():
         var1 = encode(week1, field, team, r1)
         var2 = encode(week2, field, team, r2)
         var3 = encode(week3, field, team, r3)
-        clauses.append("-{0} -{1} -{2} 0".format(var1, var2, var3))
+        if (var1 != -1) and (var2 != -1) and (var3 != -1):
+          clauses.append("-{0} -{1} -{2} 0".format(var1, var2, var3))
   #print "6: ", len(clauses)
   return clauses
 

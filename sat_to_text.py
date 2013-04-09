@@ -8,55 +8,53 @@ def length(number):
 
 # the inverse function to encode
 def decode(number):
-  digits_per_field, remainder = divmod(length(number), 3)
-#  print digits_per_field
-  if remainder != 1:
-    print "Fehler"
-    return
+  number = number - 1
 
-  shift = pow(10, digits_per_field)
-  tmp, team = divmod(number, shift)
-  tmp, field = divmod(tmp, shift)
-  position, week = divmod(tmp, shift)
-  
-  return (week, field, team, position)
+  weeks = max_team - 1
+  fields = max_team / 2
+  slots = weeks * fields
 
+  if (number < (max_vars / 2)):
+    position = 1
+    team_offset = 1
+  else:
+    position = 2
+    team_offset = 2
+    number = number - (max_vars / 2)
+
+  (team_index, slot_index) = divmod(number, slots)
+  (row_index, col_index) = divmod(slot_index, weeks)
+
+  return (col_index + 1, row_index + 1, team_index + team_offset, position)
 
 ### MAIN PROGRAM STARTS HERE ###
 
 args = sys.argv
 f = file(args[1], 'r')
 
-clauses = []
+variables = []
 
 for line in f:
-  print line
-
-'''
-for line in f:#sys.stdin:
   for word in line.split(' '):
     try:
       number = int(word)
-      if (number > 0):
-	clauses.append(decode(number))
+      if (number != 0):
+        variables.append(number)
     except exceptions.ValueError:
       pass
 
-if (len(clauses) == 0):
-  print "No solution was found!"
-  sys.exit()
+variables_to_teams = {}
 
-max_team = max(x[2] for x in clauses)
-#print "Max team: ", max_team
+for teams in range (2, 20):
+  vars = teams * (teams - 1) * (teams - 1)
+  variables_to_teams[vars] = teams
+
+max_vars = len(variables)
+max_team = variables_to_teams[max_vars]
+
 teams = range(1, max_team + 1)
 weeks = range(1, (max_team - 1) + 1)
 fields = range(1, (max_team / 2) + 1)
-
-
-# the last number is the highest
-digits_per_field = length(max_team)
-
-#print "Digits per field: ",digits_per_field
 
 cells = []
 
@@ -66,9 +64,9 @@ for field in fields:
     row.append((0,0))
   cells.append(row)
 
-#print cells
+positive_variables = filter(lambda x:x>0, variables)
 
-for (week, field, team, position) in clauses:
+for (week, field, team, position) in map(decode, positive_variables):
 #  (week, field, team, position) = decode(clause)
   (oldteam1, oldteam2) = cells[field-1][week-1]
   if (position == 1):
@@ -85,4 +83,4 @@ def printcells(cells):
 
 
 printcells(cells)
-'''
+

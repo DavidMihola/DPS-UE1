@@ -9,7 +9,7 @@ weeks = range(1, max_team)
 fields = range(1, (max_team / 2) + 1)
 positions = range(1, 3)
 
-max_vars = pow(10, 3 * length(max_team) + 1)
+max_vars = max_team * (max_team -1) * (max_team-1)
 
 def improvementClauses():
   clauses = []
